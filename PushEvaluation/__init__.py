@@ -8,7 +8,6 @@ from urllib.parse import urlparse
 def main(req: func.HttpRequest) -> func.HttpResponse:
 
     req_body = req.get_json()
-    logging.info('Request body: ' + str(req_body))
 
     #isDismissed = req_body.get('action') == 'dismissed'
     #isOpen = req_body.get('pull_request').get('state') == 'open'
