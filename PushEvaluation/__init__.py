@@ -21,18 +21,16 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     reviewState = req_body.get('review').get('state')
     prNumber = req_body.get('pull_request').get('number')
 
+    if reviewState == 'commented':
+        logging.info("Skipping, comment. reviewer={},pr_id={}".format(reviewerLogin, prNumber))
+        return func.HttpResponse('Comment ignored.')
+
+    if reviewerLogin not in data_engineering_members():
+        logging.info("Skipping, non-DE reviewer. reviewer={},pr_id={}".format(reviewerLogin, prNumber))
+        return func.HttpResponse('non-DE reviewer ignored')
+
     sql_client = get_sql_client()
-    sql_client.cursor().execute("""
-        INSERT INTO review_history (
-            review_id,
-            submitted_at,
-            commit_id,
-            reviewer_login,
-            review_state,
-            pull_request_number) 
-        VALUES (%s,%s,%s,%s,%s,%s)""",
-        (reviewId, submittedAt, commitId, reviewerLogin, reviewState, prNumber))
-    sql_client.commit()
+    insert_review_event(sql_client, reviewId, submittedAt, commitId, reviewerLogin, reviewState, prNumber)
 
     return func.HttpResponse('Processed event successfully.')
 
@@ -42,8 +40,39 @@ def add_tag_to_pull_request(ghClient, repoName, prNumber, tag):
 
     pr.add_to_labels(tag)
 
-def get_sql_client():
+def data_engineering_members():
+    return [
+        'albertomsp',
+        'bxw11',
+        'davigust',
+        'ikewalker',
+        'kimyen',
+        'kosinsky',
+        'msempere',
+        'preston-m-price',
+        'trevorc-gh',
+        'jeffsvajlenko',
+        'jamisonhyatt',
+        'tbries',
+        'sdseaton',
+        'mbellani',
+        'whoahbot'
+    ]
 
+def insert_review_event(sql_client, review_id, submitted_at, commit_id, reviewer_login, review_state, pull_request_number):
+    sql_client.cursor().execute("""
+        INSERT INTO review_history (
+            review_id,
+            submitted_at,
+            commit_id,
+            reviewer_login,
+            review_state,
+            pull_request_number) 
+        VALUES (%s,%s,%s,%s,%s,%s)""",
+        (review_id, submitted_at, commit_id, reviewer_login, review_state, pull_request_number))
+    sql_client.commit()
+
+def get_sql_client():
     conn = os.environ["db_connection_string"]
     conn_dict = dict(item.split("=") for item in conn.split(","))
 
