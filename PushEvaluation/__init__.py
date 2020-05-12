@@ -9,7 +9,6 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
 
     req_body = req.get_json()
 
-    #isDismissed = req_body.get('action') == 'dismissed'
     #isOpen = req_body.get('pull_request').get('state') == 'open'
     #isDraft = req_body.get('pull_request').get('draft')
 
@@ -21,23 +20,36 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     prNumber = req_body.get('pull_request').get('number')
 
     if reviewState == 'commented':
-        logging.info("Skipping, comment. reviewer={},pr_id={}".format(reviewerLogin, prNumber))
+        logging.info("Skipping, comment. reviewer={}, pr={}".format(reviewerLogin, prNumber))
         return func.HttpResponse('Comment ignored.')
 
     if reviewerLogin not in data_engineering_members():
-        logging.info("Skipping, non-DE reviewer. reviewer={},pr_id={}".format(reviewerLogin, prNumber))
+        logging.info("Skipping, non-DE reviewer. reviewer={}, pr={}".format(reviewerLogin, prNumber))
         return func.HttpResponse('non-DE reviewer ignored')
 
     sql_client = get_sql_client()
+
+    if is_dismissed_approval(sql_client, reviewId, reviewState):
+        logging.info("Dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
+        add_tag_to_pull_request('github/airflow-sources', prNumber, 'DE Approval Dismissed')
+    else:
+        logging.info("Not a dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
+
     insert_review_event(sql_client, reviewId, submittedAt, commitId, reviewerLogin, reviewState, prNumber)
 
     return func.HttpResponse('Processed event successfully.')
 
-def add_tag_to_pull_request(ghClient, repoName, prNumber, tag):
-    repo = ghClient.get_repo(repoName)
-    pr = repo.get_pull(prNumber)
+
+def add_tag_to_pull_request(repoName, pr_number, tag):
+
+    pat = os.environ["github_pat"]
+    github_client = Github(pat)
+
+    repo = github_client.get_repo(repoName)
+    pr = repo.get_pull(pr_number)
 
     pr.add_to_labels(tag)
+
 
 def data_engineering_members():
     return [
@@ -58,6 +70,7 @@ def data_engineering_members():
         'whoahbot'
     ]
 
+
 def insert_review_event(sql_client, review_id, submitted_at, commit_id, reviewer_login, review_state, pull_request_number):
     sql_client.cursor().execute("""
         INSERT INTO review_history (
@@ -71,6 +84,32 @@ def insert_review_event(sql_client, review_id, submitted_at, commit_id, reviewer
         (review_id, submitted_at, commit_id, reviewer_login, review_state, pull_request_number))
     sql_client.commit()
 
+
+def is_dismissed_approval(sql_client, review_id, new_state):
+
+    if new_state != 'dismissed':
+        return False
+
+    cursor = sql_client.cursor()
+
+    cursor.execute("""
+        SELECT
+            review_state 
+        FROM
+            reapprovals.review_history
+        WHERE
+            review_id = %s""",
+        (review_id,))
+
+    records = cursor.fetchall()
+
+    for row in records:
+        if row[0] == 'approved':
+            return True
+
+    return False
+
+
 def get_sql_client():
     conn = os.environ["db_connection_string"]
     conn_dict = dict(item.split("=") for item in conn.split(","))
@@ -80,5 +119,4 @@ def get_sql_client():
         password=conn_dict["password"],
         host=conn_dict["host"],
         port=conn_dict["port"],
-        database=conn_dict["database"]
-    )
+        database=conn_dict["database"])
