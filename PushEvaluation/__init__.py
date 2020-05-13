@@ -20,23 +20,23 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     prNumber = req_body.get('pull_request').get('number')
 
     if reviewState == 'commented':
-        logging.info("Skipping, comment. reviewer={}, pr={}".format(reviewerLogin, prNumber))
+        logging.info("TRACE: Skipping, comment. reviewer={}, pr={}".format(reviewerLogin, prNumber))
         return func.HttpResponse('Comment ignored.')
 
     if reviewerLogin not in data_engineering_members():
-        logging.info("Skipping, non-DE reviewer. reviewer={}, pr={}".format(reviewerLogin, prNumber))
+        logging.info("TRACE: Skipping, non-DE reviewer. reviewer={}, pr={}".format(reviewerLogin, prNumber))
         return func.HttpResponse('non-DE reviewer ignored')
 
     sql_client = get_sql_client()
 
     if is_dismissed_approval(sql_client, reviewId, reviewState):
-        logging.info("Dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
+        logging.info("TRACE: Dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
         add_tag_to_pull_request('github/airflow-sources', prNumber, 'DE Approval Dismissed')
 
     insert_review_event(sql_client, reviewId, submittedAt, commitId, reviewerLogin, reviewState, prNumber)
 
     if reviewState == 'approved':
-        logging.info("DE approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
+        logging.info("TRACE: DE approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
         remove_tag_from_pull_request('github/airflow-sources', prNumber, 'DE Approval Dismissed')
 
     return func.HttpResponse('Processed event successfully.')
