@@ -32,10 +32,12 @@ def main(req: func.HttpRequest) -> func.HttpResponse:
     if is_dismissed_approval(sql_client, reviewId, reviewState):
         logging.info("Dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
         add_tag_to_pull_request('github/airflow-sources', prNumber, 'DE Approval Dismissed')
-    else:
-        logging.info("Not a dismissed approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
 
     insert_review_event(sql_client, reviewId, submittedAt, commitId, reviewerLogin, reviewState, prNumber)
+
+    if reviewState == 'approved':
+        logging.info("DE approval: review_id={}, reviewer={}, pr={}".format(reviewId, reviewerLogin, prNumber))
+        remove_tag_from_pull_request('github/airflow-sources', prNumber, 'DE Approval Dismissed')
 
     return func.HttpResponse('Processed event successfully.')
 
@@ -49,6 +51,17 @@ def add_tag_to_pull_request(repoName, pr_number, tag):
     pr = repo.get_pull(pr_number)
 
     pr.add_to_labels(tag)
+
+
+def remove_tag_from_pull_request(repoName, pr_number, tag):
+
+    pat = os.environ["github_pat"]
+    github_client = Github(pat)
+
+    repo = github_client.get_repo(repoName)
+    pr = repo.get_pull(pr_number)
+
+    pr.remove_from_labels(tag)
 
 
 def data_engineering_members():
