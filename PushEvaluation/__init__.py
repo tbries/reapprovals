@@ -61,7 +61,8 @@ def remove_tag_from_pull_request(repoName, pr_number, tag):
     repo = github_client.get_repo(repoName)
     pr = repo.get_pull(pr_number)
 
-    pr.remove_from_labels(tag)
+    if tag in [label.name for label in pr.labels]:
+        pr.remove_from_labels(tag)
 
 
 def data_engineering_members():
