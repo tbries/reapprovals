@@ -67,20 +67,16 @@ def remove_tag_from_pull_request(repoName, pr_number, tag):
 
 def data_engineering_members():
     return [
-        'albertomsp',
         'bxw11',
-        'davigust',
         'ikewalker',
         'kimyen',
         'kosinsky',
         'msempere',
         'preston-m-price',
         'trevorc-gh',
-        'jeffsvajlenko',
         'jamisonhyatt',
         'tbries',
         'sdseaton',
-        'mbellani',
         'whoahbot'
     ]
 
