@@ -73,11 +73,10 @@ def data_engineering_members():
         'kosinsky',
         'msempere',
         'preston-m-price',
-        'trevorc-gh',
-        'jamisonhyatt',
         'tbries',
         'sdseaton',
-        'whoahbot'
+        'bsao',
+        'vka12',
     ]
 
 
