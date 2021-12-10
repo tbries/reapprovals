@@ -70,13 +70,13 @@ def data_engineering_members():
         'bxw11',
         'ikewalker',
         'kimyen',
-        'kosinsky',
         'msempere',
         'preston-m-price',
         'tbries',
         'sdseaton',
         'bsao',
         'vka12',
+        'freddiev4',
     ]
 
 
